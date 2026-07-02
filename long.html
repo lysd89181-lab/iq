@@ -701,6 +701,10 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        console.log('🚀 iQ Store - نظام المصادقة جاهز');
+        console.log('📦 إصدار Firebase:', firebase.SDK_VERSION);
+        console.log('🔗 المشروع:', firebaseConfig.projectId);
+
         // ========== جزيئات الخلفية ==========
         function createParticles() {
             const container = document.getElementById('particles');
@@ -907,6 +911,9 @@
             const password = document.getElementById('loginPassword').value;
             const submitBtn = document.getElementById('loginSubmitBtn');
             
+            console.log('🟡 محاولة تسجيل الدخول...');
+            console.log('📧 البريد:', email);
+            
             // مسح الأخطاء
             clearAllErrors();
             
@@ -929,7 +936,10 @@
                 highlightInput('loginPassword', false);
             }
             
-            if (!isValid) return;
+            if (!isValid) {
+                console.log('❌ فشل التحقق من الصحة');
+                return;
+            }
             
             // تعطيل الزر وإظهار السبينر
             submitBtn.classList.add('loading');
@@ -939,7 +949,20 @@
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
                 const user = userCredential.user;
                 
-                console.log('✅ تم تسجيل الدخول بنجاح:', user.uid);
+                console.log('✅ تم تسجيل الدخول بنجاح!');
+                console.log('👤 UID:', user.uid);
+                console.log('📧 البريد:', user.email);
+                
+                // تحديث آخر تسجيل دخول في Firestore
+                try {
+                    await db.collection("users").doc(user.uid).update({
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log('✅ تم تحديث وقت آخر تسجيل دخول');
+                } catch (updateError) {
+                    console.warn('⚠️ لم يتم تحديث وقت آخر تسجيل دخول:', updateError.message);
+                }
+                
                 showToast('🎉 تم تسجيل الدخول بنجاح! جاري توجيهك...', 'success');
                 
                 // التوجيه للصفحة الرئيسية
@@ -949,6 +972,9 @@
                 
             } catch (error) {
                 console.error('❌ خطأ في تسجيل الدخول:', error);
+                console.error('❌ كود الخطأ:', error.code);
+                console.error('❌ رسالة الخطأ:', error.message);
+                
                 submitBtn.classList.remove('loading');
                 submitBtn.disabled = false;
                 
@@ -957,6 +983,7 @@
                 switch (error.code) {
                     case 'auth/user-not-found':
                         errorMessage = '❌ لا يوجد حساب بهذا البريد الإلكتروني';
+                        highlightInput('loginEmail', true);
                         break;
                     case 'auth/wrong-password':
                         errorMessage = '❌ كلمة المرور غير صحيحة';
@@ -980,7 +1007,7 @@
             }
         }
 
-        // ========== إنشاء حساب جديد ==========
+        // ========== إنشاء حساب جديد (نسخة محسنة مع تتبع كامل) ==========
         async function handleRegister() {
             const name = document.getElementById('registerName').value.trim();
             const username = document.getElementById('registerUsername').value.trim();
@@ -988,6 +1015,11 @@
             const password = document.getElementById('registerPassword').value;
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             const submitBtn = document.getElementById('registerSubmitBtn');
+            
+            console.log('🟡 === بدء عملية إنشاء حساب جديد ===');
+            console.log('📝 الاسم:', name);
+            console.log('👤 اسم المستخدم:', username || '(غير محدد)');
+            console.log('📧 البريد:', email);
             
             // مسح الأخطاء
             clearAllErrors();
@@ -1035,27 +1067,43 @@
                 highlightInput('registerConfirmPassword', false);
             }
             
-            if (!isValid) return;
+            if (!isValid) {
+                console.log('❌ فشل التحقق من صحة البيانات');
+                return;
+            }
+            
+            console.log('✅ التحقق من الصحة ناجح');
             
             // تعطيل الزر وإظهار السبينر
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
             
             try {
-                // إنشاء حساب في Firebase Auth
+                // الخطوة 1: إنشاء حساب في Firebase Auth
+                console.log('🟡 الخطوة 1: إنشاء حساب في Firebase Auth...');
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
                 
-                // تحديث اسم المستخدم في الملف الشخصي
+                console.log('✅ تم إنشاء الحساب في Auth بنجاح!');
+                console.log('👤 UID:', user.uid);
+                console.log('📧 البريد:', user.email);
+                
+                // الخطوة 2: تحديث الملف الشخصي
+                console.log('🟡 الخطوة 2: تحديث الملف الشخصي...');
                 await user.updateProfile({
                     displayName: name
                 });
+                console.log('✅ تم تحديث الملف الشخصي');
                 
-                // حفظ بيانات المستخدم في Firestore
+                // الخطوة 3: حفظ البيانات في Firestore
+                console.log('🟡 الخطوة 3: حفظ البيانات في Firestore...');
+                
+                const finalUsername = username || name.toLowerCase().replace(/\s+/g, '_');
+                
                 const userData = {
                     uid: user.uid,
                     name: name,
-                    username: username || name.toLowerCase().replace(/\s+/g, '_'),
+                    username: finalUsername,
                     email: email,
                     balance: 0,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1064,18 +1112,40 @@
                     role: 'user'
                 };
                 
-                await db.collection("users").doc(user.uid).set(userData);
+                console.log('📦 البيانات المراد حفظها:');
+                console.log(JSON.stringify(userData, null, 2));
                 
-                console.log('✅ تم إنشاء الحساب بنجاح:', user.uid);
+                // حفظ البيانات
+                await db.collection("users").doc(user.uid).set(userData);
+                console.log('✅ تم حفظ البيانات في Firestore بنجاح!');
+                
+                // الخطوة 4: التأكيد على الحفظ
+                console.log('🟡 الخطوة 4: التأكد من وجود البيانات...');
+                const savedDoc = await db.collection("users").doc(user.uid).get();
+                
+                if (savedDoc.exists) {
+                    console.log('✅✅✅ تأكيد نهائي: البيانات موجودة في Firestore!');
+                    console.log('📋 البيانات المؤكدة:', savedDoc.data());
+                } else {
+                    console.error('❌❌❌ خطأ فادح: البيانات غير موجودة بعد الحفظ!');
+                    throw new Error('فشل حفظ البيانات في Firestore - البيانات غير موجودة بعد التأكيد');
+                }
+                
+                console.log('🎉 === تم إنشاء الحساب بنجاح كامل ===');
+                
                 showToast('🎉 تم إنشاء حسابك بنجاح! جاري توجيهك...', 'success');
                 
                 // التوجيه للصفحة الرئيسية
                 setTimeout(() => {
                     window.location.href = 'index.html';
-                }, 1500);
+                }, 2000);
                 
             } catch (error) {
-                console.error('❌ خطأ في إنشاء الحساب:', error);
+                console.error('❌ === فشل في إنشاء الحساب ===');
+                console.error('❌ كود الخطأ:', error.code);
+                console.error('❌ رسالة الخطأ:', error.message);
+                console.error('❌ تفاصيل الخطأ الكاملة:', error);
+                
                 submitBtn.classList.remove('loading');
                 submitBtn.disabled = false;
                 
@@ -1098,6 +1168,9 @@
                     case 'auth/operation-not-allowed':
                         errorMessage = '❌ التسجيل غير مفعل حالياً، تواصل مع الدعم';
                         break;
+                    case 'permission-denied':
+                        errorMessage = '❌ خطأ في الصلاحيات: تأكد من قواعد Firestore';
+                        break;
                     default:
                         errorMessage = '❌ ' + (error.message || 'حدث خطأ غير متوقع');
                 }
@@ -1108,7 +1181,10 @@
 
         // ========== استعادة كلمة المرور ==========
         async function resetPassword() {
-            const email = document.getElementById('loginEmail').value.trim();
+            const emailInput = document.getElementById('loginEmail');
+            const email = emailInput.value.trim();
+            
+            console.log('🟡 طلب استعادة كلمة المرور...');
             
             if (!email || !/\S+@\S+\.\S+/.test(email)) {
                 const newEmail = prompt('📧 الرجاء إدخال بريدك الإلكتروني لاستعادة كلمة المرور:');
@@ -1118,20 +1194,24 @@
                 }
                 
                 try {
+                    console.log('🟡 إرسال رابط استعادة كلمة المرور إلى:', newEmail);
                     await auth.sendPasswordResetEmail(newEmail);
+                    console.log('✅ تم إرسال رابط الاستعادة');
                     showToast('✅ تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني', 'success');
                 } catch (error) {
-                    console.error('خطأ في استعادة كلمة المرور:', error);
+                    console.error('❌ خطأ في استعادة كلمة المرور:', error);
                     showToast('❌ ' + (error.message || 'حدث خطأ أثناء إرسال رابط الاستعادة'), 'error');
                 }
                 return;
             }
             
             try {
+                console.log('🟡 إرسال رابط استعادة كلمة المرور إلى:', email);
                 await auth.sendPasswordResetEmail(email);
+                console.log('✅ تم إرسال رابط الاستعادة');
                 showToast('✅ تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني', 'success');
             } catch (error) {
-                console.error('خطأ في استعادة كلمة المرور:', error);
+                console.error('❌ خطأ في استعادة كلمة المرور:', error);
                 showToast('❌ ' + (error.message || 'حدث خطأ أثناء إرسال رابط الاستعادة'), 'error');
             }
         }
@@ -1157,18 +1237,22 @@
             }
         });
 
-        // ========== التحقق من حالة المستخدم ==========
+        // ========== التحقق من حالة المستخدم عند التحميل ==========
         auth.onAuthStateChanged(user => {
             if (user) {
                 // المستخدم مسجل دخوله بالفعل، توجيه مباشر للصفحة الرئيسية
                 console.log('👤 المستخدم مسجل دخوله مسبقاً:', user.uid);
+                console.log('🔄 جاري التوجيه إلى الصفحة الرئيسية...');
                 window.location.href = 'index.html';
+            } else {
+                console.log('ℹ️ لا يوجد مستخدم مسجل دخوله حالياً');
             }
         });
 
         // ========== بدء التشغيل ==========
         createParticles();
-        console.log('🚀 iQ Store - صفحة المصادقة جاهزة');
+        console.log('✅ نظام المصادقة جاهز تماماً');
+        console.log('📌 في انتظار تفاعل المستخدم...');
     </script>
 </body>
-  </html>
+</html>
