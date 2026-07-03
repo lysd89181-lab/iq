@@ -1007,7 +1007,7 @@
             }
         }
 
-        // ========== إنشاء حساب جديد (نسخة محسنة مع تتبع كامل) ==========
+        // ========== إنشاء حساب جديد ==========
         async function handleRegister() {
             const name = document.getElementById('registerName').value.trim();
             const username = document.getElementById('registerUsername').value.trim();
@@ -1086,7 +1086,6 @@
                 
                 console.log('✅ تم إنشاء الحساب في Auth بنجاح!');
                 console.log('👤 UID:', user.uid);
-                console.log('📧 البريد:', user.email);
                 
                 // الخطوة 2: تحديث الملف الشخصي
                 console.log('🟡 الخطوة 2: تحديث الملف الشخصي...');
@@ -1095,7 +1094,7 @@
                 });
                 console.log('✅ تم تحديث الملف الشخصي');
                 
-                // الخطوة 3: حفظ البيانات في Firestore
+                // الخطوة 3: حفظ البيانات في Firestore (سيتم إنشاء مجموعة users تلقائياً إذا لم تكن موجودة)
                 console.log('🟡 الخطوة 3: حفظ البيانات في Firestore...');
                 
                 const finalUsername = username || name.toLowerCase().replace(/\s+/g, '_');
@@ -1112,10 +1111,7 @@
                     role: 'user'
                 };
                 
-                console.log('📦 البيانات المراد حفظها:');
-                console.log(JSON.stringify(userData, null, 2));
-                
-                // حفظ البيانات
+                // حفظ البيانات وانتظار انتهاء العملية تماماً
                 await db.collection("users").doc(user.uid).set(userData);
                 console.log('✅ تم حفظ البيانات في Firestore بنجاح!');
                 
@@ -1125,26 +1121,21 @@
                 
                 if (savedDoc.exists) {
                     console.log('✅✅✅ تأكيد نهائي: البيانات موجودة في Firestore!');
-                    console.log('📋 البيانات المؤكدة:', savedDoc.data());
                 } else {
                     console.error('❌❌❌ خطأ فادح: البيانات غير موجودة بعد الحفظ!');
-                    throw new Error('فشل حفظ البيانات في Firestore - البيانات غير موجودة بعد التأكيد');
+                    throw new Error('فشل حفظ البيانات في Firestore');
                 }
                 
                 console.log('🎉 === تم إنشاء الحساب بنجاح كامل ===');
-                
                 showToast('🎉 تم إنشاء حسابك بنجاح! جاري توجيهك...', 'success');
                 
-                // التوجيه للصفحة الرئيسية
+                // التوجيه يدوياً بعد اكتمال كل شيء بنجاح
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 2000);
                 
             } catch (error) {
-                console.error('❌ === فشل في إنشاء الحساب ===');
-                console.error('❌ كود الخطأ:', error.code);
-                console.error('❌ رسالة الخطأ:', error.message);
-                console.error('❌ تفاصيل الخطأ الكاملة:', error);
+                console.error('❌ === فشل في إنشاء الحساب ===', error);
                 
                 submitBtn.classList.remove('loading');
                 submitBtn.disabled = false;
@@ -1157,19 +1148,9 @@
                         highlightInput('registerEmail', true);
                         showError('registerEmailError', 'البريد الإلكتروني مستخدم بالفعل');
                         break;
-                    case 'auth/invalid-email':
-                        errorMessage = '❌ صيغة البريد الإلكتروني غير صحيحة';
-                        highlightInput('registerEmail', true);
-                        break;
                     case 'auth/weak-password':
-                        errorMessage = '❌ كلمة المرور ضعيفة جداً، استخدم 6 أحرف على الأقل';
+                        errorMessage = '❌ كلمة المرور ضعيفة جداً';
                         highlightInput('registerPassword', true);
-                        break;
-                    case 'auth/operation-not-allowed':
-                        errorMessage = '❌ التسجيل غير مفعل حالياً، تواصل مع الدعم';
-                        break;
-                    case 'permission-denied':
-                        errorMessage = '❌ خطأ في الصلاحيات: تأكد من قواعد Firestore';
                         break;
                     default:
                         errorMessage = '❌ ' + (error.message || 'حدث خطأ غير متوقع');
@@ -1184,8 +1165,6 @@
             const emailInput = document.getElementById('loginEmail');
             const email = emailInput.value.trim();
             
-            console.log('🟡 طلب استعادة كلمة المرور...');
-            
             if (!email || !/\S+@\S+\.\S+/.test(email)) {
                 const newEmail = prompt('📧 الرجاء إدخال بريدك الإلكتروني لاستعادة كلمة المرور:');
                 if (!newEmail || !/\S+@\S+\.\S+/.test(newEmail)) {
@@ -1194,25 +1173,19 @@
                 }
                 
                 try {
-                    console.log('🟡 إرسال رابط استعادة كلمة المرور إلى:', newEmail);
                     await auth.sendPasswordResetEmail(newEmail);
-                    console.log('✅ تم إرسال رابط الاستعادة');
                     showToast('✅ تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني', 'success');
                 } catch (error) {
-                    console.error('❌ خطأ في استعادة كلمة المرور:', error);
-                    showToast('❌ ' + (error.message || 'حدث خطأ أثناء إرسال رابط الاستعادة'), 'error');
+                    showToast('❌ ' + error.message, 'error');
                 }
                 return;
             }
             
             try {
-                console.log('🟡 إرسال رابط استعادة كلمة المرور إلى:', email);
                 await auth.sendPasswordResetEmail(email);
-                console.log('✅ تم إرسال رابط الاستعادة');
                 showToast('✅ تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني', 'success');
             } catch (error) {
-                console.error('❌ خطأ في استعادة كلمة المرور:', error);
-                showToast('❌ ' + (error.message || 'حدث خطأ أثناء إرسال رابط الاستعادة'), 'error');
+                showToast('❌ ' + error.message, 'error');
             }
         }
 
@@ -1237,13 +1210,11 @@
             }
         });
 
-        // ========== التحقق من حالة المستخدم عند التحميل ==========
+        // ========== التحقق من حالة المستخدم عند التحميل (تمت معالجة مشكلة التوجيه) ==========
         auth.onAuthStateChanged(user => {
             if (user) {
-                // المستخدم مسجل دخوله بالفعل، توجيه مباشر للصفحة الرئيسية
-                console.log('👤 المستخدم مسجل دخوله مسبقاً:', user.uid);
-                console.log('🔄 جاري التوجيه إلى الصفحة الرئيسية...');
-                window.location.href = 'index.html';
+                console.log('👤 المستعمل متصل حالياً بنجاح بالمعرّف:', user.uid);
+                // ملاحظة: تم إلغاء التوجيه التلقائي السريع من هنا لضمان إتمام دالة التسجيل (handleRegister) حفظ البيانات أولاً.
             } else {
                 console.log('ℹ️ لا يوجد مستخدم مسجل دخوله حالياً');
             }
@@ -1252,7 +1223,6 @@
         // ========== بدء التشغيل ==========
         createParticles();
         console.log('✅ نظام المصادقة جاهز تماماً');
-        console.log('📌 في انتظار تفاعل المستخدم...');
     </script>
 </body>
 </html>
