@@ -550,7 +550,7 @@
 
         <div class="sidebar-profile-section">
             <div class="sidebar-avatar-container">
-                <img class="sidebar-avatar" src="https://raw.githubusercontent.com/lysd89181-lab/Media_Plus/main/avatar-placeholder.png" alt="User Profile" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80'">
+                <img class="sidebar-avatar" src="https://raw.githubusercontent.com/lysd89181-lab/iq/main/avatar-placeholder.png" alt="User Profile" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80'">
             </div>
             <div><span class="sidebar-uid-badge" id="sidebarUID">UID: ------</span></div>
             <div class="sidebar-username" id="sidebarName">جاري التحميل...</div>
@@ -841,7 +841,9 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        const BASE_IMAGE_URL = "https://raw.githubusercontent.com/lysd89181-lab/Media_Plus/main/";
+        // ========== الرابط الصحيح للمستودع الرئيسي ==========
+        // تم التعديل ليكون الرابط الصحيح للمستودع ly sd89181-lab/iq
+        const BASE_IMAGE_URL = "https://raw.githubusercontent.com/lysd89181-lab/iq/main/";
         const WEBHOOK_URL = "https://eogwntzweojdgz3.m.pipedream.net";
 
         let currentCurrency = 'LYD'; 
@@ -1214,7 +1216,21 @@
         };
 
         async function sendWebhookNotification(data) { try { await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); } catch (e) {} }
-        function getImageUrl(img) { if (!img) return ''; if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:')) return img; return BASE_IMAGE_URL + img; }
+        
+        // ========== دالة تحويل اسم الملف إلى رابط صورة ==========
+        // تستقبل اسم الملف (File Name) وترجع رابط الصورة الكامل من المستودع
+        function getImageUrl(img) { 
+            if (!img) return ''; 
+            // إذا كان الرابط يبدأ بـ http أو https أو data: نرجعها كما هي (رابط كامل)
+            if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:')) return img; 
+            // وإلا نعتبر أن img هو اسم ملف، ونركب الرابط الكامل من المستودع
+            let base = BASE_IMAGE_URL;
+            if (!base.endsWith('/')) base += '/';
+            let fileName = img;
+            while (fileName.startsWith('/')) fileName = fileName.substring(1);
+            return base + fileName;
+        }
+
         function generateInvoiceNumber() { return `iQ-${Math.floor(10000 + Math.random() * 90000)}`; }
 
         let allProducts = [], userBalanceLYD = 0, userData = null, currentProduct = null;
@@ -1320,7 +1336,7 @@
                 renderSlide(0); renderDots(); startSlideShow();
             }).catch(() => { heroSlides = [{image: 'https://via.placeholder.com/800x200/0a0b10/00f2ff?text=iQ+Store', link: ''}]; renderSlide(0); renderDots(); startSlideShow(); });
         }
-        function renderSlide(index) { if (heroSlides.length === 0) return; currentSlide = index; document.getElementById('heroSlide').src = getImageUrl(heroSlides[index].image); document.querySelectorAll('#slideDots .dot').forEach((d, i) => { d.classList.toggle('active', i === index); }); }
+        function renderSlide(index) { if (heroSlides.length === 0) return; currentSlide = index; document.getElementById('heroSlide').src = heroSlides[index].image; document.querySelectorAll('#slideDots .dot').forEach((d, i) => { d.classList.toggle('active', i === index); }); }
         function renderDots() { document.getElementById('slideDots').innerHTML = heroSlides.map((_, i) => `<span class="dot ${i===0?'active':''}" onclick="renderSlide(${i})"></span>`).join(''); }
         function startSlideShow() { if (slideInterval) clearInterval(slideInterval); if (heroSlides.length <= 1) return; slideInterval = setInterval(() => { renderSlide((currentSlide + 1) % heroSlides.length); }, 4000); }
 
@@ -1332,9 +1348,214 @@
             if(!currentProduct)return;if(isQuantityMode){const qty=parseInt(document.getElementById('quantityInput').value);if(isNaN(qty)||qty<currentQtyMin)return alert(`⚠️ الكمية أقل من الحد الأدنى (${currentQtyMin}).`);if(qty>currentQtyMax)return alert(`⚠️ الكمية أكبر من الحد الأقصى (${currentQtyMax}).`);}
             document.getElementById('stepQuantity').classList.add('hidden');document.getElementById('stepData').classList.remove('hidden');
             const symbol = currentCurrency === 'LYD' ? ' د.ل' : ' $';
-            if(isQuantityMode){const qty=parseInt(document.getElementById('quantityInput').value);document.getElementById('orderSummary').classList.remove('hidden');document.getElementById('summaryQty').innerText=qty;document.getElementById('summaryPrice').innerText=formatPrice(unitPriceLYD * qty) + symbol;}
-            else{document.getElementById('orderSummary').classList.remove('hidden');document.getElementById('summaryQty').innerText=1;document.getElementById('summaryPrice').innerText=formatPrice(unitPriceLYD) + symbol;}
+            if(isQuantityMode){const qty=parseInt(document.getElementById('quantityInput').value);document.getElementById('orderSummary').classList.remove('hidden');document.getElementById('summaryQty').innerText=qty;document.getElementById('summaryPrice').innerText=formatPrice(unitPriceLYD*qty)+symbol;}else{document.getElementById('orderSummary').classList.add('hidden');}
+            document.getElementById('stepData').scrollIntoView({behavior:'smooth'});
         }
+
+        function setupDataField(){const input=document.getElementById('targetInput');const hint=document.getElementById('fieldHint');const container=document.getElementById('fieldDataContainer');if(!currentFieldEnabled){container.classList.add('hidden');return;}container.classList.remove('hidden');input.value='';switch(currentFieldType){case 'id':input.placeholder=currentLang==='ar'?'🎮 معرف اللاعب (ID)':'🎮 Player ID';hint.innerText=currentLang==='ar'?'أدخل معرف اللاعب الخاص بك':'Enter your Player ID';break;case 'phone':input.placeholder=currentLang==='ar'?'📞 رقم الهاتف':'📞 Phone Number';hint.innerText=currentLang==='ar'?'أدخل رقم الهاتف المطلوب شحنه':'Enter the phone number to recharge';break;case 'account':input.placeholder=currentLang==='ar'?'🔗 رابط الحساب':'🔗 Account Link';hint.innerText=currentLang==='ar'?'أدخل رابط الحساب أو اليوزر':'Enter account profile link or user';break;case 'custom':input.placeholder=currentFieldCustomLabel||'📝 بيانات مطلوبة';hint.innerText=currentFieldCustomLabel||'أدخل البيانات المطلوبة';break;default:input.placeholder='🎮 ID';hint.innerText='ID';}}
+
+        auth.onAuthStateChanged(user => { 
+            if(!user){window.location.href='long.html';return;} 
+            document.getElementById('sidebarUID').innerText = `UID: ${user.uid}`;
+            db.collection("users").doc(user.uid).onSnapshot(doc=>{
+                if(doc.exists){ userData=doc.data(); userBalanceLYD=userData.balance||0; updateAllBalances(); }
+            }); 
+            setTimeout(()=>{ initializeAppSettings(); fetchCategories(); loadHeroSlides(); changeLanguage('ar'); },500); 
+        });
+        
+        function updateAllBalances(){
+            const balanceToDisplay = formatPrice(userBalanceLYD);
+            const symbol = currentCurrency === 'LYD' ? ' د.ل' : ' $';
+            document.getElementById('topBalance').innerText=balanceToDisplay;
+            document.getElementById('walletBalance').innerText=balanceToDisplay;
+            if(userData){
+                const name=userData.username||userData.name||'---';
+                document.getElementById('sidebarName').innerText=name;
+                const mail = userData.email||'---';
+                document.getElementById('sidebarEmail').innerText=mail;
+            }
+        }
+        
+        function logout(){auth.signOut().then(()=>{window.location.href='long.html';});}
+        function copyText(text){navigator.clipboard.writeText(text).then(()=>alert('✅ تم النسخ بنجاح'));}
+
+        async function submitRecharge(provider, field1, field2, isCrypto=false){
+            const val1=document.getElementById(field1).value.trim();const val2=document.getElementById(field2).value.trim();
+            if(!val1)return alert('⚠️ أدخل البيانات المطلوبة');if(!val2)return alert('⚠️ أدخل القيمة');
+            let amountInLYD=parseFloat(val2);
+            if(isCrypto) amountInLYD = amountInLYD * (appSettings.binance_rate || 11);
+            const invoiceNumber=generateInvoiceNumber();
+            try{
+                await db.collection("deposits").add({userId:auth.currentUser.uid,userName:userData?.username||userData?.name||'',userEmail:userData?.email||'',phone:val1,card_code:val1,amount:amountInLYD,crypto_amount:isCrypto?parseFloat(val2):null,provider:provider,status:'pending',invoiceNumber:invoiceNumber,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+                await sendWebhookNotification({user_name:userData?.username||userData?.name||'---',user_email:userData?.email||'---',user_phone:val1,action_type:`فاتورة شحن ${provider} #${invoiceNumber}`,details:`📱 ${provider}\n📞 ${val1}\n💵 ${amountInLYD.toFixed(2)} د.ل\n🧾 ${invoiceNumber}`});
+                alert('✅ تم إرسال طلب الشحن بنجاح!');
+                document.getElementById(field1).value='';document.getElementById(field2).value='';
+            }catch(e){alert('❌ خطأ: '+e.message);}
+        }
+
+        function fetchCategories(){
+            if(cachedCategories.length > 0) { renderCategoriesGrid(); return; }
+            db.collection("categories").orderBy("order").get().then(snap=>{
+                cachedCategories = [];
+                snap.forEach(doc => cachedCategories.push({id:doc.id, ...doc.data()}));
+                renderCategoriesGrid();
+            }).catch(err => { document.getElementById('catsGrid').innerHTML='<div class="loading">❌ فشل في جلب الأقسام</div>'; });
+        }
+        
+        function renderCategoriesGrid() {
+            const grid=document.getElementById('catsGrid');
+            let filteredCats = cachedCategories.filter(cat => {
+                let sType = cat.sectionType || 'cards';
+                if (currentActiveSectionType === 'cards') { return sType === 'cards' || sType === 'games'; } 
+                else { return sType === 'smm'; }
+            });
+            if(!filteredCats.length){ grid.innerHTML='<div class="loading">لا توجد أقسام متوفرة في هذا القسم حالياً</div>'; return; }
+            grid.innerHTML=filteredCats.map(cat=>`<div class="glass-card cat-card" onclick="openCategory('${cat.id}','${(cat.name||'').replace(/'/g,"\\'")}')"><img src="${getImageUrl(cat.image||cat.cover)}" class="card-img" loading="lazy" onerror="this.style.display='none'"><h3>${cat.name||'قسم'}</h3></div>`).join('');
+        }
+        
+        let currentActiveCatId = null, currentActiveCatName = '';
+        function openCategory(catId, catName){
+            currentActiveCatId = catId; currentActiveCatName = catName;
+            document.getElementById('categoriesView').classList.add('hidden');document.getElementById('productsView').classList.remove('hidden');
+            document.getElementById('productsTitle').innerHTML=`📂 ${catName}`;
+            if(cachedProducts[catId]) { allProducts = cachedProducts[catId]; renderProductsGrid(); return; }
+            const grid=document.getElementById('prodsGrid');
+            grid.innerHTML=`<div class="loading"><svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.1)"/><path d="M4 12a8 8 0 0 1 8-8"/></svg><span>⏳ جاري استدعاء المنتجات...</span></div>`;
+            db.collection("products").where("categoryId","==",catId).where("active","==",true).get().then(snap=>{
+                if(!snap.size){grid.innerHTML='<div class="loading">لا توجد منتجات متاحة هنا حالياً</div>';return;}
+                allProducts=[];
+                snap.forEach(doc=>{ const p=doc.data(); p._id=doc.id; allProducts.push(p); });
+                allProducts.sort((a,b)=>(a.priceLYD||a.price||0)-(b.priceLYD||b.price||0));
+                cachedProducts[catId] = allProducts;
+                renderProductsGrid();
+            });
+        }
+
+        function renderProductsGrid() {
+            const grid = document.getElementById('prodsGrid');
+            if(!allProducts.length || document.getElementById('productsView').classList.contains('hidden')) return;
+            const symbol = currentCurrency === 'LYD' ? ' د.ل' : ' $';
+            grid.innerHTML=allProducts.map((p,i)=>{
+                const img=getImageUrl(p.image||p.img);
+                const name=p.name||'منتج';
+                const priceLYD=p.priceLYD||p.price||0;
+                const discount=p.discount||0;
+                const finalPriceLYD=discount>0?priceLYD-(priceLYD*discount/100):priceLYD;
+                const desc=p.description||'';
+                return`<div class="glass-card product-card" onclick="openDetailByIndex(${i})">${discount>0?`<div class="discount-badge">-${discount}%</div>`:''}<img src="${img}" class="card-img" loading="lazy" onerror="this.style.display='none'"><p class="game-name">${currentActiveCatName || 'Service'}</p><h4 class="product-title">${name}</h4>${desc?`<div class="product-desc-box">📝 ${desc}</div>`:''}${discount>0?`<div class="old-price">${formatPrice(priceLYD)}${symbol}</div>`:''}<div class="product-price">${formatPrice(finalPriceLYD)}${symbol}</div><button class="buy-btn-3d" onclick="event.stopPropagation();openDetailByIndex(${i})">شراء</button></div>`;
+            }).join('');
+        }
+
+        function showCategories(){document.getElementById('productsView').classList.add('hidden');document.getElementById('categoriesView').classList.remove('hidden');}
+        function openDetailByIndex(index){ const p=allProducts[index]; if(!p)return; openDetail(getImageUrl(p.image||p.img),p.name||'منتج',p.priceLYD||p.price||0,p.type||'id',p.description||'',p.discount||0,p.enableQuantity||false,p.qtyMin||1,p.qtyMax||100,p.fieldType||p.type||'id',p.fieldEnabled!==false,p.fieldCustomLabel||''); }
+
+        function openDetail(img,name,priceLYD,type,description,discount,enableQuantity,qtyMin,qtyMax,fieldType,fieldEnabled,fieldCustomLabel){
+            discount=discount||0;enableQuantity=enableQuantity||false;qtyMin=qtyMin||1;qtyMax=qtyMax||100;
+            currentFieldType=fieldType||'id'; currentFieldEnabled=fieldEnabled===true||fieldEnabled==='true'; currentFieldCustomLabel=fieldCustomLabel||'';
+            isQuantityMode=enableQuantity;
+            if(!isQuantityMode) { qtyMin = 1; qtyMax = 1; }
+            currentQtyMin=qtyMin; currentQtyMax=qtyMax;
+            const finalPriceLYD=discount>0?priceLYD-(priceLYD*discount/100):priceLYD;
+            currentProduct={img,name,priceLYD:finalPriceLYD,type:currentFieldType,description,discount,originalPrice:priceLYD,enableQuantity,qtyMin,qtyMax};
+            document.getElementById('stepData').classList.add('hidden');document.getElementById('stepQuantity').classList.remove('hidden');
+            document.getElementById('orderSummary').classList.add('hidden');
+            document.getElementById('dImg').src=img;document.getElementById('dName').innerText=name;
+            document.getElementById('quantitySection').classList.add('hidden');
+            document.getElementById('fixedPriceSection').classList.add('hidden');
+            document.getElementById('dynamicPriceSection').classList.add('hidden');
+            document.getElementById('targetInput').value='';document.getElementById('contactPhone').value='';
+            unitPriceLYD = enableQuantity ? (finalPriceLYD / qtyMin) : finalPriceLYD;
+            renderModalPrices();
+            if(enableQuantity){
+                document.getElementById('quantityInput').disabled = false;
+                document.getElementById('quantitySlider').classList.remove('hidden');
+                document.getElementById('quantitySlider').min=qtyMin; document.getElementById('quantitySlider').max=qtyMax;
+                document.getElementById('quantitySlider').value=qtyMin; document.getElementById('quantityInput').value=qtyMin;
+                document.getElementById('qtyMinLabel').innerText=`الحد الأدنى: ${qtyMin}`;
+                document.getElementById('qtyMaxLabel').innerText=`الحد الأقصى: ${qtyMax}`;
+                document.getElementById('quantitySection').classList.remove('hidden');
+                document.getElementById('dynamicPriceSection').classList.remove('hidden');
+                updateDynamicPrice(qtyMin);
+                document.getElementById('dDesc').innerText=`عداد متحرك من (${qtyMin}-${qtyMax})`;
+            }else{
+                document.getElementById('quantityInput').value=1; document.getElementById('quantityInput').disabled = true;
+                document.getElementById('quantitySlider').classList.add('hidden');
+                document.getElementById('fixedPriceSection').classList.remove('hidden');
+                document.getElementById('dDesc').innerText=currentFieldCustomLabel||'توصيل فوري وتلقائي';
+            }
+            setupDataField();document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function renderModalPrices() {
+            if(!currentProduct) return;
+            const badge=document.getElementById('dDiscountBadge'),oldPrice=document.getElementById('dOldPrice');
+            const symbol = currentCurrency === 'LYD' ? ' د.ل' : ' $';
+            if(currentProduct.discount > 0 && !isQuantityMode){
+                badge.classList.remove('hidden');
+                badge.innerHTML=`<span class="discount-badge-big" style="background:var(--red);color:#fff;font-size:12px;font-weight:900;padding:4px 10px;border-radius:10px;display:inline-block;margin-bottom:6px;">🔥 خصم ${currentProduct.discount}%</span>`;
+                oldPrice.classList.remove('hidden'); oldPrice.innerText=`${formatPrice(currentProduct.originalPrice)}${symbol}`;
+            }else{ badge.classList.add('hidden'); oldPrice.classList.add('hidden'); }
+            if(isQuantityMode) { const currentQty = parseInt(document.getElementById('quantityInput').value) || currentQtyMin; updateDynamicPrice(currentQty); } 
+            else { document.getElementById('fixedPriceDisplay').innerText = formatPrice(currentProduct.priceLYD); }
+        }
+
+        function closeDetailModal(){document.getElementById('detailModal').classList.add('hidden');}
+
+        async function confirmPurchase(){
+            if(!currentProduct)return;const user=auth.currentUser;if(!user)return alert('⚠️ سجل دخول أولاً');
+            const contactPhone=document.getElementById('contactPhone').value.trim();if(!contactPhone)return alert('⚠️ أدخل رقم التواصل');
+            let finalPriceLYD, quantity=1, orderData='';
+            if(isQuantityMode){
+                quantity=parseInt(document.getElementById('quantityInput').value);
+                if(isNaN(quantity)||quantity<currentQtyMin)return alert(`⚠️ الكمية أقل من الحد الأدنى (${currentQtyMin}).`);
+                if(quantity>currentQtyMax)return alert(`⚠️ الكمية أكبر من الحد الأقصى (${currentQtyMax}).`);
+                finalPriceLYD=unitPriceLYD*quantity; orderData=`${quantity} قطعة`;
+            } else {
+                finalPriceLYD = currentProduct.priceLYD;
+                if(currentFieldEnabled){ orderData=document.getElementById('targetInput').value.trim(); if(!orderData)return alert(`⚠️ أدخل البيانات المطلوبة للاعب`); }
+                else{orderData='مباشر';}
+            }
+            if(userBalanceLYD < finalPriceLYD) return alert('⚠️ رصيد حسابك الحالي غير كافٍ لإتمام العملية، يرجى شحن محفظتك أولاً.');
+            const newBalanceLYD = userBalanceLYD - finalPriceLYD;
+            const invoiceNumber=generateInvoiceNumber();
+            try{
+                await db.collection("users").doc(user.uid).update({balance:newBalanceLYD});
+                await db.collection("orders").add({
+                    userId:user.uid, userName:userData?.username||userData?.name||'', userEmail:userData?.email||'',
+                    serviceName:currentProduct.name, cardName:currentProduct.name, amount:finalPriceLYD, price:finalPriceLYD,
+                    playerID:orderData, contactPhone:contactPhone, quantity:quantity, serviceType:currentFieldType,
+                    invoiceNumber:invoiceNumber, status:'pending', createdAt:firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await sendWebhookNotification({user_name:userData?.username||userData?.name||'---',user_email:userData?.email||'---',user_phone:contactPhone,action_type:`فاتورة شراء #${invoiceNumber}`,details:`🎮 ${currentProduct.name}\n📝 ${orderData}\n💰 ${finalPriceLYD.toFixed(2)} د.ل`});
+                closeDetailModal();
+                alert(`🎉 تم تقديم طلبك بنجاح! الفاتورة: ${invoiceNumber}`);
+            }catch(e){alert('❌ حدث خطأ: '+e.message);}
+        }
+
+        let ordersListener = null;
+        function loadMyOrders(){
+            const user=auth.currentUser;if(!user)return;
+            const container=document.getElementById('myOrdersList');
+            container.innerHTML=`<div class="loading"><svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.1)"/><path d="M4 12a8 8 0 0 1 8-8"/></svg><span>⏳ جاري مزامنة وجلب الطلبات حياً...</span></div>`;
+            if(ordersListener) ordersListener();
+            ordersListener = db.collection("orders").where("userId", "==", user.uid).orderBy("createdAt", "desc").limit(50).onSnapshot(snap => {
+                if(snap.empty){ container.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>لا توجد لديك طلبات مسجلة حتى الآن</p></div>`; return; }
+                let html=''; const symbol = currentCurrency === 'LYD' ? ' د.ل' : ' $';
+                snap.forEach(doc=>{
+                    const o=doc.data();
+                    let statusClass = 'pending'; let statusText = '🕒 قيد الانتظار والمراجعة';
+                    if(o.status === 'completed') { statusClass = 'completed'; statusText = '✅ مكتمل ونُفذ بنجاح'; } 
+                    else if(o.status === 'canceled' || o.status === 'refunded') { statusClass = 'canceled'; statusText = o.status === 'canceled' ? '❌ ملغي ومرفوض' : '🔄 مسترجع للمحفظة'; }
+                    const date=o.createdAt?new Date(o.createdAt.seconds*1000).toLocaleString('ar-LY'):'---';
+                    const displayedPrice = formatPrice(o.amount || o.price || 0);
+                    html+=`<div class="order-item"><div class="order-header"><span class="order-id">🧾 رقم الفاتورة: ${o.invoiceNumber || '---'}</span><span class="order-status ${statusClass}">${statusText}</span></div><div class="order-details">🎮 <b>اسم المنتج:</b> ${o.serviceName || o.cardName || '---'}<br>🔢 <span>الكمية:</span> ${o.quantity || 1} | 💰 <span>السعر الإجمالي:</span> ${displayedPrice}${symbol}<br>📝 <span>البيانات المرفقة:</span> <span style="color:var(--primary);font-family:monospace;">${o.playerID || '---'}</span><br>📞 <span>هاتف التواصل:</span> ${o.contactPhone || '---'}<br>📅 <span>تاريخ العمل:</span> ${date}</div></div>`;
+                });
+                container.innerHTML=html;
+            }, error => { console.error("Firestore Index Error:", error); container.innerHTML='<div class="loading" style="color:var(--red);">⚠️ عذراً، لا يمكن عرض سجل الطلبات حالياً. الرجاء التواصل مع الدعم الفني لتفعيل الفهرسة المطلوبة في قاعدة البيانات.</div>'; });
+        }
+
+        function searchProducts(){const term=document.getElementById('searchInput').value.toLowerCase().trim();if(!term)return;document.getElementById('categoriesView').classList.add('hidden');document.getElementById('productsView').classList.remove('hidden');document.getElementById('productsTitle').innerHTML=`🔍 بحث: ${term}`;const grid=document.getElementById('prodsGrid');grid.innerHTML='<div class="loading">⏳ جاري البحث المستمر...</div>';db.collection("products").where("active","==",true).get().then(snap=>{allProducts=[];let html='';snap.forEach(doc=>{const p=doc.data();if(!(p.name||'').toLowerCase().includes(term))return;p._id=doc.id;allProducts.push(p);});const symbol = currentCurrency === 'LYD' ? ' د.ل' : ' $';allProducts.forEach((p,i)=>{const img=getImageUrl(p.image||p.img);const name=p.name||'منتج';const priceLYD=p.priceLYD||p.price||0;const discount=p.discount||0;const finalPriceLYD=discount>0?priceLYD-(priceLYD*discount/100):priceLYD;const desc=p.description||'';html+=`<div class="glass-card product-card" onclick="openDetailByIndex(${i})">${discount>0?`<div class="discount-badge">-${discount}%</div>`:''}<img src="${img}" class="card-img" loading="lazy" onerror="this.style.display='none'"><p class="game-name">البحث</p><h4 class="product-title">${name}</h4>${desc?`<div class="product-desc-box">📝 ${desc}</div>`:''}${discount>0?`<div class="old-price">${formatPrice(priceLYD)}${symbol}</div>`:''}<div class="product-price">${formatPrice(finalPriceLYD)}${symbol}</div><button class="buy-btn-3d" onclick="event.stopPropagation();openDetailByIndex(${i})">شراء</button></div>`;});grid.innerHTML=html||'<div class="loading">لا توجد نتائج مطابقة لبحثك</div>';});}
+        document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')searchProducts();});
     </script>
 </body>
-</html>
+    </html>
