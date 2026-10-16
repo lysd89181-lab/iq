@@ -3,7 +3,7 @@ import { db, collection, query, where, orderBy, limit, onSnapshot } from '../../
 import { html, raw, fmtDate, copyText } from '../../../js/core/utils.js';
 import { icon } from '../../../js/core/icons.js';
 import { api } from '../../../js/core/api.js';
-import { toast, toastErr, sheet, confirmBox, withLoading } from '../../../js/core/ui.js';
+import { toast, toastErr, sheet, confirmBox, withLoading, friendlyError } from '../../../js/core/ui.js';
 import { lyd, badge, tsMs, emptyRow } from '../kit.js';
 
 const TABS = [['pending', 'المعلقة'], ['approved', 'المقبولة'], ['rejected', 'المرفوضة'], ['all', 'الكل']];
@@ -24,7 +24,7 @@ export default async function page(el) {
     unsub = onSnapshot(q, (s) => {
       rows = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (tab === 'pending' ? tsMs(a.createdAt) - tsMs(b.createdAt) : tsMs(b.createdAt) - tsMs(a.createdAt)));
       draw();
-    }, (e) => { el.querySelector('#tb').innerHTML = emptyRow(8, e.message); });
+    }, (e) => { el.querySelector('#tb').innerHTML = emptyRow(8, friendlyError(e)); });
   };
   function draw() {
     el.querySelector('#tb').innerHTML = rows.length ? rows.map((d) => html`<tr>

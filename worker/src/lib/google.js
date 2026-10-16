@@ -102,6 +102,23 @@ export async function verifyIdToken(env, token) {
   return { uid: payload.sub, email: payload.email || '', emailVerified: payload.email_verified === true, name: payload.name || '' };
 }
 
+// تعديل حساب مستخدم (تأكيد البريد، تغيير كلمة المرور)
+export async function updateAuthUser(env, localId, fields) {
+  const token = await accessToken(env);
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${projectId(env)}/accounts:update`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId, ...fields }),
+  });
+  if (!res.ok) {
+    const out = await res.json().catch(() => ({}));
+    const m = out.error?.message || '';
+    if (/WEAK_PASSWORD/.test(m)) fail(400, 'كلمة المرور ضعيفة، خليها 8 أحرف فيها حروف وأرقام');
+    fail(500, 'تعذر تحديث الحساب');
+  }
+  return true;
+}
+
 // البحث عن مستخدم بالإيميل (لإضافة الموظفين)
 export async function lookupUserByEmail(env, email) {
   const token = await accessToken(env);

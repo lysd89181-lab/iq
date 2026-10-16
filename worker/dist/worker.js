@@ -44,10 +44,10 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function readJson(req) {
+async function readJson(req, max = 50000) {
   try {
     const t = await req.text();
-    if (t.length > 50000) fail(413, 'الطلب كبير جداً');
+    if (t.length > max) fail(413, 'الطلب كبير جداً');
     return t ? JSON.parse(t) : {};
   } catch (e) {
     if (e instanceof ApiError) throw e;
@@ -158,6 +158,23 @@ async function verifyIdToken(env, token) {
   if (payload.aud !== pid || payload.iss !== `https://securetoken.google.com/${pid}`) fail(401, 'جلسة غير صالحة', 'unauthenticated');
   if (!payload.sub || payload.exp < now || payload.iat > now + 300) fail(401, 'انتهت الجلسة، سجل دخولك من جديد', 'unauthenticated');
   return { uid: payload.sub, email: payload.email || '', emailVerified: payload.email_verified === true, name: payload.name || '' };
+}
+
+// تعديل حساب مستخدم (تأكيد البريد، تغيير كلمة المرور)
+async function updateAuthUser(env, localId, fields) {
+  const token = await accessToken(env);
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${projectId(env)}/accounts:update`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId, ...fields }),
+  });
+  if (!res.ok) {
+    const out = await res.json().catch(() => ({}));
+    const m = out.error?.message || '';
+    if (/WEAK_PASSWORD/.test(m)) fail(400, 'كلمة المرور ضعيفة، خليها 8 أحرف فيها حروف وأرقام');
+    fail(500, 'تعذر تحديث الحساب');
+  }
+  return true;
 }
 
 // البحث عن مستخدم بالإيميل (لإضافة الموظفين)
@@ -464,6 +481,53 @@ function productPricing(p) {
 function lineTotal(p, qty) {
   const pr = productPricing(p);
   return money(pr.unit * qty);
+}
+
+// ===== lib/mail.js =====
+// إرسال البريد عبر Resend + قالب ميثاق
+
+
+function codeEmail(env, { title, intro, code, note }) {
+  const site = env.SITE_URL || '';
+  const digits = code.split('').map((d) => `<span style="display:inline-block;width:42px;height:54px;line-height:54px;margin:0 3px;border-radius:10px;background:#1B1B21;border:1px solid #2A2A32;font-size:28px;font-weight:700;color:#F5F3F0;font-family:Arial,sans-serif">${d}</span>`).join('');
+  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#0C0C0F">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0C0C0F;padding:32px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#131317;border:1px solid #2A2A32;border-radius:20px;overflow:hidden">
+<tr><td style="height:4px;background:#E3123F"></td></tr>
+<tr><td align="center" style="padding:32px 28px 8px">${site ? `<img src="${site}/assets/logo.png" width="96" alt="ميثاق" style="display:block;width:96px;height:auto;border:0">` : '<b style="color:#F5F3F0;font-size:24px">ميثاق</b>'}</td></tr>
+<tr><td dir="rtl" style="padding:16px 28px 0;font-family:Tahoma,Arial,sans-serif;text-align:center">
+<h1 style="margin:0 0 10px;font-size:22px;color:#F5F3F0">${title}</h1>
+<p style="margin:0;font-size:15px;line-height:1.8;color:#9C9AA6">${intro}</p></td></tr>
+<tr><td align="center" dir="ltr" style="padding:24px 12px">${digits}</td></tr>
+<tr><td dir="rtl" style="padding:0 28px 28px;font-family:Tahoma,Arial,sans-serif;text-align:center">
+<p style="margin:0;font-size:13px;line-height:1.8;color:#6D6B77">${note}</p></td></tr>
+<tr><td dir="rtl" style="padding:16px 28px;border-top:1px solid #202027;font-family:Tahoma,Arial,sans-serif;text-align:center;font-size:12px;color:#6D6B77">ميثاق — لجميع الخدمات والاشتراكات الرقمية</td></tr>
+</table></td></tr></table></body></html>`;
+}
+
+async function sendCodeEmail(env, to, kind, code) {
+  if (!env.RESEND_API_KEY) fail(500, 'خدمة البريد غير مُعدة بعد', 'config');
+  const t = kind === 'reset'
+    ? { subject: `${code} كود استرجاع كلمة المرور | ميثاق`, title: 'استرجاع كلمة المرور', intro: 'استعمل الكود هذا باش تغيّر كلمة المرور متاعك.' }
+    : { subject: `${code} كود تأكيد بريدك | ميثاق`, title: 'أكّد بريدك الإلكتروني', intro: 'اكتب الكود هذا في الموقع باش يتأكد حسابك.' };
+  const note = 'الكود صالح لمدة 10 دقائق. لو ما طلبتش الكود، تجاهل الرسالة هذي ومحدش يقدر يدخل حسابك.';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: env.MAIL_FROM || 'ميثاق <noreply@iqstore.com.ly>',
+      to: [to],
+      subject: t.subject,
+      html: codeEmail(env, { ...t, code, note }),
+      text: `${t.title}\n\nالكود: ${code}\n\n${note}`,
+    }),
+  });
+  if (!res.ok) {
+    const out = await res.json().catch(() => ({}));
+    console.log('mail failed', res.status, JSON.stringify(out));
+    fail(502, 'تعذر إرسال البريد حالياً، حاول بعد شوية');
+  }
 }
 
 // ===== routes/coupons.js =====
@@ -1032,6 +1096,171 @@ async function removeStaff(req, env, fs) {
   return { ok: true };
 }
 
+// ===== routes/email.js =====
+// أكواد البريد: تأكيد الحساب + استرجاع كلمة المرور
+
+
+
+
+
+const CODE_TTL = 10 * 60 * 1000;
+const RESEND_GAP = 60 * 1000;
+const PER_HOUR = 5;
+const MAX_TRIES = 5;
+
+const newCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+const msOf = (d) => (d instanceof Date ? d.getTime() : 0);
+
+// ينشئ كود جديد مع حدود الإرسال، ويرجّعه للإرسال
+async function issueCode(fs, path, base) {
+  const now = Date.now();
+  const prev = (await fs.get(path))?.data || {};
+  const wait = msOf(prev.lastSentAt) + RESEND_GAP - now;
+  if (wait > 0) fail(429, `استنى ${Math.ceil(wait / 1000)} ثانية قبل ما تطلب كود جديد`, 'rate_limited');
+  const inWindow = now - msOf(prev.windowStart) < 3600_000;
+  const count = inWindow ? num(prev.windowCount) : 0;
+  if (count >= PER_HOUR) fail(429, 'طلبت أكواد كثيرة، حاول بعد ساعة', 'rate_limited');
+  const code = newCode();
+  const salt = randomId(16);
+  await fs.commit([fs.wSet(path, {
+    ...base, salt, hash: await sha256Hex(`${salt}:${code}`),
+    expiresAt: new Date(now + CODE_TTL), attempts: 0, lastSentAt: new Date(now),
+    windowStart: inWindow ? prev.windowStart : new Date(now), windowCount: count + 1,
+  })]);
+  return code;
+}
+
+// يتحقق من الكود؛ يرجّع بيانات المستند لو صحيح
+async function checkCode(fs, path, code) {
+  code = str(code, 10).replace(/\D/g, '');
+  if (code.length !== 6) fail(400, 'الكود 6 أرقام');
+  const doc = await fs.get(path);
+  const d = doc?.data;
+  if (!d || !d.hash) fail(400, 'اطلب كود جديد', 'code_missing');
+  if (msOf(d.expiresAt) < Date.now()) fail(400, 'الكود انتهت صلاحيته، اطلب كود جديد', 'code_expired');
+  if (num(d.attempts) >= MAX_TRIES) fail(429, 'محاولات كثيرة، اطلب كود جديد', 'code_locked');
+  if ((await sha256Hex(`${d.salt}:${code}`)) !== d.hash) {
+    await fs.commit([fs.wUpdate(path, { attempts: num(d.attempts) + 1 })]);
+    const left = MAX_TRIES - num(d.attempts) - 1;
+    fail(400, left > 0 ? `الكود غير صحيح، باقي ${left} محاولات` : 'الكود غير صحيح، اطلب كود جديد', 'code_wrong');
+  }
+  return d;
+}
+
+// حد عام لكل جهاز (IP) عشان ما حد يغرق البريد
+async function ipLimit(req, fs, max = 15) {
+  const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
+  const path = `rate_limits/ip_${(await sha256Hex(ip)).slice(0, 32)}`;
+  const d = (await fs.get(path))?.data || {};
+  const now = Date.now();
+  const inWindow = now - msOf(d.windowStart) < 3600_000;
+  const count = inWindow ? num(d.count) : 0;
+  if (count >= max) fail(429, 'محاولات كثيرة من هذا الجهاز، حاول بعد ساعة', 'rate_limited');
+  await fs.commit([fs.wSet(path, { windowStart: inWindow ? d.windowStart : new Date(now), count: count + 1 })]);
+}
+
+const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+async function sendVerifyCode(req, env, fs) {
+  const user = await requireUser(req, env, fs, { verified: false });
+  if (user.emailVerified) return { ok: true, already: true };
+  if (!user.email) fail(400, 'الحساب بدون بريد');
+  await ipLimit(req, fs, 20);
+  const code = await issueCode(fs, `email_codes/${user.uid}`, { uid: user.uid, email: user.email });
+  await sendCodeEmail(env, user.email, 'verify', code);
+  return { ok: true, sentTo: user.email };
+}
+
+async function verifyEmailCode(req, env, fs) {
+  const user = await requireUser(req, env, fs, { verified: false });
+  if (user.emailVerified) return { ok: true, already: true };
+  const body = await readJson(req);
+  const d = await checkCode(fs, `email_codes/${user.uid}`, body.code);
+  if (d.email && d.email !== user.email) fail(400, 'اطلب كود جديد', 'code_missing');
+  await updateAuthUser(env, user.uid, { emailVerified: true });
+  await fs.commit([fs.wDelete(`email_codes/${user.uid}`)]);
+  return { ok: true };
+}
+
+async function sendResetCode(req, env, fs) {
+  const body = await readJson(req);
+  const email = str(body.email, 120).toLowerCase();
+  if (!validEmail(email)) fail(400, 'صيغة البريد غير صحيحة');
+  await ipLimit(req, fs, 10);
+  const user = await lookupUserByEmail(env, email);
+  // نفس الرد دائماً حتى لو البريد مش مسجل (ما نكشفوش الحسابات)
+  if (!user || user.disabled) return { ok: true };
+  const id = (await sha256Hex(email)).slice(0, 40);
+  const code = await issueCode(fs, `reset_codes/${id}`, { uid: user.localId, email });
+  await sendCodeEmail(env, email, 'reset', code);
+  return { ok: true };
+}
+
+async function resetPassword(req, env, fs) {
+  const body = await readJson(req);
+  const email = str(body.email, 120).toLowerCase();
+  const password = String(body.password || '');
+  if (!validEmail(email)) fail(400, 'صيغة البريد غير صحيحة');
+  if (password.length < 8 || password.length > 128) fail(400, 'كلمة المرور لازم 8 أحرف على الأقل');
+  const path = `reset_codes/${(await sha256Hex(email)).slice(0, 40)}`;
+  const d = await checkCode(fs, path, body.code);
+  // اللي استلم الكود أثبت إن البريد بريده، فنأكده كمان
+  await updateAuthUser(env, d.uid, { password, emailVerified: true });
+  await fs.commit([fs.wDelete(path)]);
+  return { ok: true };
+}
+
+// ===== routes/upload.js =====
+// رفع صور لوحة التحكم إلى مستودع الموقع (تنفتح من نفس الدومين)
+
+
+
+const MAX_BYTES = 1.5 * 1024 * 1024;
+const FOLDERS = ['products', 'categories', 'banners'];
+
+function sniff(bytes) {
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpg';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'png';
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45) return 'webp';
+  return null;
+}
+
+async function uploadImage(req, env, fs) {
+  const body = await readJson(req, 3_000_000);
+  const dir = FOLDERS.includes(body.folder) ? body.folder : 'products';
+  await requireStaff(req, env, fs, dir === 'banners' ? 'settings' : 'products');
+  if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) fail(500, 'رفع الصور غير مُعد بعد', 'config');
+
+  const b64 = str(body.data, 3_000_000).replace(/^data:image\/\w+;base64,/, '');
+  let bytes;
+  try {
+    bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  } catch {
+    fail(400, 'الصورة غير صالحة');
+  }
+  if (bytes.length > MAX_BYTES) fail(413, 'الصورة كبيرة، الحد 1.5 ميجا');
+  const ext = sniff(bytes);
+  if (!ext) fail(400, 'نوع الصورة غير مدعوم (JPG، PNG، WebP فقط)');
+
+  const d = new Date();
+  const path = `uploads/${dir}/${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}/${randomId(12)}.${ext}`;
+  const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'mithaq-api',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message: `صورة جديدة: ${path}`, content: b64, branch: env.GITHUB_BRANCH || 'main' }),
+  });
+  if (!res.ok) {
+    console.log('upload failed', res.status, (await res.text()).slice(0, 300));
+    fail(502, 'تعذر رفع الصورة حالياً، حاول بعد شوية');
+  }
+  return { ok: true, path };
+}
+
 // ===== index.js =====
 // ميثاق | MITHAQ API — Cloudflare Worker
 // المتغيرات المطلوبة: FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT (Secret), ALLOWED_ORIGINS, SITE_URL (اختياري)
@@ -1043,12 +1272,19 @@ async function removeStaff(req, env, fs) {
 
 const admin = { approveOrder, cancelOrder, approveDeposit, rejectDeposit, adjustWallet, setUserActive, sendNotification, upsertStaff, removeStaff };
 
+
+
 const ROUTES = {
   'POST /v1/checkout': checkout,
   'POST /v1/coupon/check': checkCoupon,
   'POST /v1/deposit': createDeposit,
   'POST /v1/push/register': registerPush,
   'POST /v1/push/unregister': unregisterPush,
+  'POST /v1/email/send-code': sendVerifyCode,
+  'POST /v1/email/verify': verifyEmailCode,
+  'POST /v1/password/send-code': sendResetCode,
+  'POST /v1/password/reset': resetPassword,
+  'POST /v1/admin/upload': uploadImage,
   'POST /v1/admin/orders/approve': admin.approveOrder,
   'POST /v1/admin/orders/cancel': admin.cancelOrder,
   'POST /v1/admin/deposits/approve': admin.approveDeposit,
@@ -1084,7 +1320,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(req.url);
     if (url.pathname === '/' || url.pathname === '/v1/health') {
-      return json({ ok: true, service: 'mithaq-api', configured: !!env.FIREBASE_SERVICE_ACCOUNT }, 200, cors);
+      return json({ ok: true, service: 'mithaq-api', configured: !!env.FIREBASE_SERVICE_ACCOUNT, mail: !!env.RESEND_API_KEY, uploads: !!env.GITHUB_TOKEN }, 200, cors);
     }
     // رفض الطلبات من مواقع غريبة
     const origin = req.headers.get('Origin');

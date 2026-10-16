@@ -4,6 +4,7 @@ import { html, raw, imgUrl, pricing } from '../../../js/core/utils.js';
 import { icon } from '../../../js/core/icons.js';
 import { toast, toastErr, sheet, confirmBox, withLoading } from '../../../js/core/ui.js';
 import { lyd, prodCell, emptyRow, formData, sw, audit } from '../kit.js';
+import { imageField, bindImageFields } from '../upload.js';
 
 export default async function page(el) {
   let cats = [];
@@ -124,12 +125,13 @@ function catForm(c, cats, onDeleted) {
     <div class="field"><label>اسم القسم</label><input name="name" class="input" required value="${c?.name || ''}"></div>
     <div class="field"><label>النوع</label><select name="sectionType" class="select">
       <option value="cards" ${c?.sectionType !== 'smm' ? raw('selected') : ''}>ألعاب واشتراكات</option><option value="smm" ${c?.sectionType === 'smm' ? raw('selected') : ''}>خدمات السوشيال</option></select></div>
-    <div class="field"><label>الصورة (رابط أو اسم ملف)</label><input name="image" class="input ltr" dir="ltr" value="${c?.image || c?.cover || ''}" placeholder="https://… أو pubg.png"></div>
+    ${imageField('image', c?.image || c?.cover || '', 'categories', 'صورة القسم')}
     <div class="field"><label>الترتيب</label><input name="order" type="number" class="input" value="${c?.order ?? cats.length + 1}"></div>
     ${raw(sw('active', c?.active !== false, 'ظاهر في المتجر').html)}
     <div class="row"><button class="btn btn-primary" style="flex:1"><span class="label">حفظ</span><span class="spin"></span></button>
     ${c ? html`<button type="button" class="btn btn-danger" id="del">${icon('trash', 'sm')}</button>` : ''}</div></form>`.html);
   const f = s.el.querySelector('#f');
+  bindImageFields(f);
   f.onsubmit = (e) => {
     e.preventDefault();
     withLoading(f.querySelector('button.btn-primary'), async () => {
@@ -162,7 +164,7 @@ function prodForm(p, cats, catId, done) {
       <div class="field"><label>الخصم %</label><input name="discount" type="number" min="0" max="99" class="input ltr" dir="ltr" value="${p?.discount || 0}"></div>
     </div>
     <div class="field"><label>القسم</label><select name="categoryId" class="select">${cats.map((c) => html`<option value="${c.id}" ${(p?.categoryId || catId) === c.id ? raw('selected') : ''}>${c.name}</option>`)}</select></div>
-    <div class="field"><label>الصورة (رابط أو اسم ملف)</label><input name="image" class="input ltr" dir="ltr" value="${p?.image || p?.img || ''}" placeholder="https://…"></div>
+    ${imageField('image', p?.image || p?.img || '', 'products', 'صورة المنتج')}
     <div class="field"><label>الوصف</label><textarea name="description" class="textarea">${p?.description || ''}</textarea></div>
 
     <div class="form-section"><h4>البيانات المطلوبة من الزبون</h4>
@@ -191,6 +193,7 @@ function prodForm(p, cats, catId, done) {
       ${p ? html`<button type="button" class="btn btn-danger" id="del" aria-label="حذف">${icon('trash', 'sm')}</button>` : ''}</div>
   </form>`.html, { wide: true });
   const f = s.el.querySelector('#f');
+  bindImageFields(f);
   f.querySelector('#ft').onchange = (e) => { f.querySelector('#customWrap').hidden = e.target.value !== 'custom'; };
   f.onsubmit = (e) => {
     e.preventDefault();

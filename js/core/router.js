@@ -39,7 +39,7 @@ async function render() {
     cleanup = typeof result === 'function' ? result : null;
   } catch (e) {
     console.error(e);
-    view.innerHTML = `<div class="page"><div class="empty"><h3>تعذر تحميل الصفحة</h3><p>${String(e.message || e).replace(/</g, '&lt;')}</p><button class="btn btn-ghost" onclick="location.reload()">إعادة المحاولة</button></div></div>`;
+    view.innerHTML = `<div class="page"><div class="empty"><h3>تعذر تحميل الصفحة</h3><p>تأكد من الإنترنت وحاول مرة أخرى.</p><button class="btn btn-ghost" onclick="location.reload()">إعادة المحاولة</button></div></div>`;
   } finally {
     view.removeAttribute('aria-busy');
   }

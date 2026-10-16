@@ -17,8 +17,8 @@ export const API_BASE = 'https://mithaq-api.sdkhyrallh08.workers.dev';
 // المفتاح العام لإشعارات قوقل (Firebase > Project settings > Cloud Messaging > Web Push certificates)
 export const VAPID_KEY = 'BLSp5Xbyi7_Ktnjr1i93g3vh00UIsQGeWmf94S1Ju9lxIJkqFDFwJLzi8ifnm8w6KkFJl8Je5fNcV8MKS2jGRqs';
 
-// مكان الصور اللي تتكتب كاسم ملف بس (مش رابط كامل)
-export const IMAGE_BASE = 'https://raw.githubusercontent.com/lysd89181-lab/iq/main/';
+// الصور اللي تتكتب كمسار (مثل uploads/x.webp أو a.jpg) تنفتح من نفس الموقع
+export const IMAGE_BASE = new URL('../../', import.meta.url).href;
 
 export const BRAND = { name: 'ميثاق', latin: 'MITHAQ' };
 export const FIREBASE_VERSION = '10.12.2';

@@ -1,0 +1,8 @@
+# إعداد النشر: ملفات تقنية ما تنشرش على الموقع
+exclude:
+  - worker
+  - README.md
+  - firestore.rules
+  - .gitignore
+include:
+  - .well-known

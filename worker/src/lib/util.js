@@ -41,10 +41,10 @@ export async function sha256Hex(text) {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function readJson(req) {
+export async function readJson(req, max = 50000) {
   try {
     const t = await req.text();
-    if (t.length > 50000) fail(413, 'الطلب كبير جداً');
+    if (t.length > max) fail(413, 'الطلب كبير جداً');
     return t ? JSON.parse(t) : {};
   } catch (e) {
     if (e instanceof ApiError) throw e;

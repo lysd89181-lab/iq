@@ -6,7 +6,7 @@ import { resolveCart, setQty, removeAt, clearCart } from '../services/cart.js';
 import { api } from '../core/api.js';
 import { toast, toastErr, sheet, withLoading } from '../core/ui.js';
 import { pageHead, empty, priceHtml } from '../components/blocks.js';
-import { auth, sendEmailVerification } from '../core/firebase.js';
+import { openVerifySheet } from '../components/verify.js';
 
 let coupon = null; // {code, discount, label}
 const newCheckoutId = () => { const id = `${Date.now().toString(36)}${uid(10)}`; sessionStorage.setItem('mq_checkout', id); return id; };
@@ -69,8 +69,7 @@ export default async function page(el) {
             <div style="margin-top:14px" class="stack">
               ${!user ? html`<a class="btn btn-primary btn-block" href="auth/?next=${encodeURIComponent('#/cart')}">سجّل دخولك لإتمام الشراء</a>`
                 : unverified ? html`<div class="banner warn">${icon('mail')}<span>أكّد بريدك الإلكتروني قبل أول عملية شراء.</span></div>
-                  <button class="btn btn-ghost btn-block" id="cVerify">إرسال رابط التأكيد من جديد</button>
-                  <button class="btn btn-primary btn-block" id="cRecheck">أكدت بريدي</button>`
+                  <button class="btn btn-primary btn-block" id="cVerify">${icon('mail', 'sm')}<span>أكّد بريدك بكود</span></button>`
                 : short ? html`<a class="btn btn-primary btn-block" href="#/wallet">${icon('wallet')}<span>اشحن ${fmt(money3(total - balance))} لإتمام الشراء</span></a>`
                 : html`<button class="btn btn-primary btn-block" id="cPay"><span class="label">ادفع ${fmt(total)} من محفظتك</span><span class="spin"></span></button>`}
               <button class="btn btn-ghost btn-sm" id="cClear" style="justify-self:center">تفريغ السلة</button>
@@ -119,17 +118,7 @@ export default async function page(el) {
       });
     }
     if (q('#cVerify')) {
-      q('#cVerify').onclick = async () => {
-        try {
-          await sendEmailVerification(auth.currentUser, { url: location.href.split('#')[0] + '#/cart' });
-          toast('بعثنا رابط التأكيد لبريدك، افتحه وارجع هنا');
-        } catch (err) { toastErr(err.code === 'auth/too-many-requests' ? new Error('استنى شوية قبل ما تطلب رابط جديد') : err); }
-      };
-      q('#cRecheck').onclick = async () => {
-        await auth.currentUser.reload();
-        await auth.currentUser.getIdToken(true);
-        if (auth.currentUser.emailVerified) { toast('تم تأكيد بريدك'); draw(); } else toast('البريد مازال غير مؤكد. افتح الرابط اللي وصلك', 'err');
-      };
+      q('#cVerify').onclick = async () => { if (await openVerifySheet()) draw(); };
     }
     if (q('#cPay')) q('#cPay').onclick = (e) => withLoading(e.currentTarget, () => pay(total));
   }

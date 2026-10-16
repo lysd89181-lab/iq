@@ -2,7 +2,8 @@
 import { html, raw } from '../core/utils.js';
 import { icon } from '../core/icons.js';
 import { state, set, fmt, subscribe } from '../core/state.js';
-import { auth, signOut, sendEmailVerification, db, doc, updateDoc } from '../core/firebase.js';
+import { auth, signOut, db, doc, updateDoc } from '../core/firebase.js';
+import { openVerifySheet } from '../components/verify.js';
 import { toast, toastErr, sheet, withLoading } from '../core/ui.js';
 import { enablePush, disablePush, pushState, pushSupported } from '../services/push.js';
 import { siteFooter } from '../components/blocks.js';
@@ -23,7 +24,7 @@ export default async function page(el) {
           <div class="grow" style="min-width:0"><h1 style="font-size:var(--fs-lg)">${name || 'حسابي'}</h1>
             <p class="muted ltr" style="font-size:var(--fs-sm);text-align:right;overflow-wrap:anywhere">${u.email}</p></div>
         </div>
-        ${!u.emailVerified ? html`<div class="banner warn">${icon('mail')}<span style="flex:1">بريدك غير مؤكد. أكّده باش تقدر تشتري.</span><button class="btn btn-sm btn-outline" id="aVerify">إرسال الرابط</button></div>` : ''}
+        ${!u.emailVerified ? html`<div class="banner warn">${icon('mail')}<span style="flex:1">بريدك غير مؤكد. أكّده باش تقدر تشتري.</span><button class="btn btn-sm btn-outline" id="aVerify">تأكيد بكود</button></div>` : ''}
         <a href="#/wallet" class="balance-card" style="padding:18px;display:flex;align-items:center;justify-content:space-between">
           <div><span class="muted" style="font-size:var(--fs-sm)">رصيدك</span><div class="num" style="font-family:var(--font-display);font-size:var(--fs-xl);font-weight:800">${fmt(p.balance || 0)}</div></div>
           <span class="btn btn-primary btn-sm">${icon('plus', 'sm')}<span>شحن</span></span></a>
@@ -57,12 +58,7 @@ export default async function page(el) {
     el.querySelectorAll('[data-cur]').forEach((b) => { b.onclick = () => { set({ currency: b.dataset.cur }); }; });
     if (q('#aOut')) q('#aOut').onclick = async () => { await disablePush().catch(() => {}); await signOut(auth); toast('تم تسجيل الخروج'); location.hash = '#/'; };
     if (q('#aVerify')) {
-      q('#aVerify').onclick = (e) => withLoading(e.currentTarget, async () => {
-        try {
-          await sendEmailVerification(auth.currentUser, { url: location.href.split('#')[0] + '#/account' });
-          toast('بعثنا رابط التأكيد لبريدك. افتحه وارجع هنا');
-        } catch (err) { toastErr(err.code === 'auth/too-many-requests' ? new Error('استنى شوية قبل ما تطلب رابط جديد') : err); }
-      });
+      q('#aVerify').onclick = async () => { if (await openVerifySheet()) draw(); };
     }
     if (q('#aPush')) {
       q('#aPush').onchange = async (e) => {

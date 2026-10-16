@@ -4,6 +4,7 @@ import { html, raw, imgUrl } from '../../../js/core/utils.js';
 import { icon } from '../../../js/core/icons.js';
 import { toast, toastErr, withLoading } from '../../../js/core/ui.js';
 import { sw, audit } from '../kit.js';
+import { imageField, bindImageFields } from '../upload.js';
 
 const DEF_METHODS = [{ id: 'libyana', title: 'ليبيانا ومدار', active: true }, { id: 'binance', title: 'بايننس', active: true }, { id: 'cards', title: 'كروت تعبئة', active: true }];
 const DEF_TABS = [{ id: 'cards', title: 'اشتراكات وألعاب', active: true }, { id: 'smm', title: 'خدمات السوشيال', active: true }];
@@ -53,7 +54,7 @@ export default async function page(el) {
     </section>
 
     <section class="panel form-grid"><div class="panel-title"><h2>شريط الصور في الرئيسية</h2></div>
-      <p class="hint">المقاس المناسب 1600×700. الصورة تكون رابط مباشر أو اسم ملف في مستودع الصور.</p>
+      <p class="hint">المقاس المناسب 1600×700. ارفع الصورة من جهازك أو الصق رابطها.</p>
       <div class="stack" id="slides"></div>
       <button type="button" class="btn btn-ghost btn-sm" id="addSlide" style="justify-self:start">${icon('plus', 'sm')}<span>إضافة صورة</span></button>
     </section>
@@ -95,11 +96,11 @@ export default async function page(el) {
   function drawSlides() {
     const box = f.querySelector('#slides');
     box.innerHTML = st.slides.map((x, i) => html`<div class="repeat-row"><div class="fields">
-      ${x.image ? html`<img src="${imgUrl(x.image)}" alt="" style="width:100%;max-width:220px;aspect-ratio:16/7;object-fit:cover;border-radius:10px;grid-column:1/-1">` : ''}
-      <input class="input ltr" dir="ltr" data-s="${i}" data-k="image" value="${x.image || ''}" placeholder="رابط الصورة">
+      <div style="grid-column:1/-1">${imageField('', x.image || '', 'banners', '', `data-s="${i}" data-k="image"`)}</div>
       <input class="input ltr" dir="ltr" data-s="${i}" data-k="link" value="${x.link || ''}" placeholder="رابط عند الضغط (اختياري، مثلاً #/c/ID)"></div>
       <div class="row"><span class="switch"><input type="checkbox" data-s="${i}" data-k="active" ${x.active !== false ? raw('checked') : ''} aria-label="ظاهر"><span></span></span><button type="button" class="icon-btn" data-x="${i}" aria-label="حذف">${icon('trash', 'sm')}</button></div></div>`.html).join('') || '<p class="hint">ما فيش صور، تظهر واجهة ميثاق الافتراضية.</p>';
     box.querySelectorAll('[data-x]').forEach((b) => { b.onclick = del(st.slides, Number(b.dataset.x), drawSlides); });
+    bindImageFields(box);
   }
   function drawChannels() {
     const box = f.querySelector('#channels');

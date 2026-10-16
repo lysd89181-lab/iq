@@ -3,8 +3,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const order = [
-  'lib/util.js', 'lib/google.js', 'lib/firestore.js', 'lib/notify.js', 'lib/context.js',
-  'routes/coupons.js', 'routes/checkout.js', 'routes/wallet.js', 'routes/push.js', 'routes/admin.js', 'index.js',
+  'lib/util.js', 'lib/google.js', 'lib/firestore.js', 'lib/notify.js', 'lib/context.js', 'lib/mail.js',
+  'routes/coupons.js', 'routes/checkout.js', 'routes/wallet.js', 'routes/push.js', 'routes/admin.js', 'routes/email.js', 'routes/upload.js', 'index.js',
 ];
 let out = '// ميثاق | MITHAQ API — ملف مجمّع تلقائياً (لا تعدّل هنا، عدّل src/ ثم node build.mjs)\n';
 for (const f of order) {

@@ -17,7 +17,26 @@ export function toast(message, type = 'ok', ms = 3200) {
   toastHost.appendChild(el);
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, ms);
 }
-export const toastErr = (e) => toast(e?.message || String(e), 'err', 4500);
+// رسائل خطأ عربية واضحة، بدون أي أسماء تقنية أو أسماء خدمات
+const CODES = {
+  'permission-denied': 'ما عندكش صلاحية لهذا الإجراء',
+  unavailable: 'تعذر الاتصال، تأكد من الإنترنت وحاول مرة أخرى',
+  'network-request-failed': 'تعذر الاتصال، تأكد من الإنترنت وحاول مرة أخرى',
+  'too-many-requests': 'محاولات كثيرة، استنى شوية وحاول مرة أخرى',
+  'not-found': 'العنصر غير موجود',
+  'already-exists': 'العنصر موجود مسبقاً',
+  'deadline-exceeded': 'العملية أخذت وقت طويل، حاول مرة أخرى',
+  'resource-exhausted': 'الضغط عالي حالياً، حاول بعد شوية',
+  'unauthenticated': 'سجل دخولك أولاً',
+};
+export function friendlyError(e) {
+  const code = String(e?.code || '').replace(/^(auth|firestore|storage|messaging)\//, '');
+  if (CODES[code]) return CODES[code];
+  const msg = String(e?.message || e || '');
+  if (!msg || /firebase|firestore|google|gstatic|github|cloudflare|worker|\b[a-z-]+\/[a-z-]+\b/i.test(msg)) return 'صار خطأ، حاول مرة أخرى';
+  return msg;
+}
+export const toastErr = (e) => toast(friendlyError(e), 'err', 4500);
 
 // نافذة منبثقة من الأسفل. content: نص HTML. ترجع {el, close}
 export function sheet(title, content, { onClose, wide } = {}) {

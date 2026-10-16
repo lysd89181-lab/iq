@@ -7,6 +7,8 @@ import { checkCoupon } from './routes/coupons.js';
 import { createDeposit } from './routes/wallet.js';
 import { registerPush, unregisterPush } from './routes/push.js';
 import * as admin from './routes/admin.js';
+import { sendVerifyCode, verifyEmailCode, sendResetCode, resetPassword } from './routes/email.js';
+import { uploadImage } from './routes/upload.js';
 
 const ROUTES = {
   'POST /v1/checkout': checkout,
@@ -14,6 +16,11 @@ const ROUTES = {
   'POST /v1/deposit': createDeposit,
   'POST /v1/push/register': registerPush,
   'POST /v1/push/unregister': unregisterPush,
+  'POST /v1/email/send-code': sendVerifyCode,
+  'POST /v1/email/verify': verifyEmailCode,
+  'POST /v1/password/send-code': sendResetCode,
+  'POST /v1/password/reset': resetPassword,
+  'POST /v1/admin/upload': uploadImage,
   'POST /v1/admin/orders/approve': admin.approveOrder,
   'POST /v1/admin/orders/cancel': admin.cancelOrder,
   'POST /v1/admin/deposits/approve': admin.approveDeposit,
@@ -49,7 +56,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     const url = new URL(req.url);
     if (url.pathname === '/' || url.pathname === '/v1/health') {
-      return json({ ok: true, service: 'mithaq-api', configured: !!env.FIREBASE_SERVICE_ACCOUNT }, 200, cors);
+      return json({ ok: true, service: 'mithaq-api', configured: !!env.FIREBASE_SERVICE_ACCOUNT, mail: !!env.RESEND_API_KEY, uploads: !!env.GITHUB_TOKEN }, 200, cors);
     }
     // رفض الطلبات من مواقع غريبة
     const origin = req.headers.get('Origin');

@@ -128,3 +128,10 @@
 .balance-card { position: relative; overflow: hidden; border-radius: 22px; padding: var(--s6); background: radial-gradient(120% 140% at 100% 0%, rgba(227,18,63,0.35), transparent 55%), var(--ink-2); border: 1px solid var(--line); }
 .balance-card .amount { font-family: var(--font-display); font-weight: 800; line-height: 1.1; margin-top: 4px; }
 .sub { font-size: var(--fs-xs); color: var(--fog); }
+
+/* حقل الصورة */
+.img-row { display: flex; gap: var(--s3); align-items: flex-start; }
+.img-prev { width: 88px; height: 88px; flex: none; border-radius: var(--r-md); background: var(--ink); border: 1px dashed var(--line); display: grid; place-items: center; overflow: hidden; color: var(--fog-2); }
+.img-prev img { width: 100%; height: 100%; object-fit: cover; }
+.img-pick { justify-self: start; cursor: pointer; }
+.img-pick.loading .icon { display: none; }

@@ -3,7 +3,7 @@ import { db, collection, query, where, orderBy, limit, onSnapshot, doc, deleteDo
 import { html, raw, fmtDate, copyText, debounce } from '../../../js/core/utils.js';
 import { icon } from '../../../js/core/icons.js';
 import { api } from '../../../js/core/api.js';
-import { toast, toastErr, sheet, confirmBox, withLoading } from '../../../js/core/ui.js';
+import { toast, toastErr, sheet, confirmBox, withLoading, friendlyError } from '../../../js/core/ui.js';
 import { lyd, badge, tsMs, emptyRow, downloadCsv, audit } from '../kit.js';
 import { me } from '../session.js';
 
@@ -36,7 +36,7 @@ export default async function page(el) {
       rows = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (tab === 'pending' ? tsMs(a.createdAt) - tsMs(b.createdAt) : tsMs(b.createdAt) - tsMs(a.createdAt)));
       el.querySelector('#more').hidden = s.size < size || tab === 'pending';
       draw();
-    }, (e) => { el.querySelector('#tb').innerHTML = emptyRow(8, `تعذر التحميل: ${e.message}`); });
+    }, (e) => { el.querySelector('#tb').innerHTML = emptyRow(8, `تعذر التحميل: ${friendlyError(e)}`); });
   };
 
   const match = (o) => !term || [o.invoiceNumber, o.userName, o.userEmail, o.serviceName, o.playerID, o.contactPhone].some((v) => String(v || '').toLowerCase().includes(term));

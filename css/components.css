@@ -171,3 +171,9 @@
 .switch input:checked + span::after { transform: translateX(-20px); background: #fff; }
 .switch input:focus-visible + span { outline: 2px solid var(--crimson); outline-offset: 2px; }
 .grow { flex: 1; min-width: 0; }
+
+/* ===== كود التحقق ===== */
+.otp { display: flex; justify-content: center; gap: 8px; }
+.otp input { width: 46px; height: 56px; text-align: center; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; background: var(--ink); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--paper); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.otp input:focus { border-color: var(--crimson); box-shadow: 0 0 0 3px var(--crimson-wash); }
+@media (max-width: 360px) { .otp { gap: 5px; } .otp input { width: 40px; height: 50px; } }
